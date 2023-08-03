@@ -1,1 +1,99 @@
 
+
+Instagram Case Study:
+1.	Project Description
+As a data analyst working with the product team at Instagram. my role involves analysing user interactions and engagement with the Instagram app to provide valuable insights that can help the business grow.
+From my analysis we can track how users engage in application or in online website as per the business requirement.
+All derived insights are further used for business such as marketing or product team in terms of future updates or releases to public/Users.
+2.	Approach:
+We have divided the tasks as per available data and Requirements and ask from program team.
+a. Marketing
+b. Investor Metrics.
+3.	Tech-Stack Used
+We have used the software for this project is MySQL workbench 8.0 CE
+This RDBMS software is easy to use and user friendly to create DB and Tables to perform all kind of our analysis.
+4.	Insights:
+1. Marketing Analysis:
+Loyal User Reward : To issue this award We identified the five oldest users on Instagram from the provided database as below mentioned details.
+QUERY:
+select * from asj_users order by created_at desc limit 5; 
+OR below query
+select * from (
+select *, ROW_NUMBER () OVER(ORDER BY created_at DESC) AS created_date_seq from asj_users) A
+where A.created_date_seq <=5;
+
+ 
+
+2. Inactive User Engagement
+From data we found that less interacted people in Instagram by checking 14 people have no uploads in their accounts. 
+Query and its Result set
+select * from asj_users where id not in (select user_id from ASJ_photos);
+select user_id from ASJ_photos where user_id in (5,7,14,21,24);
+
+
+ 
+
+3. Contest Winner Declaration: 
+On further analysis we observed that most popular user is “zackkemmer_93” having most likes from all the upload pics from all 100 people.
+
+Query and its Result set
+select u.id as user_id ,u.username as u_name,p.id as photo_id, count(*) as cnt
+ from asj_users u 
+join asj_photos p 
+on p.user_id =u.id 
+join asj_likes l on l.photo_id=p.id
+group by photo_id
+order by cnt desc
+limit 1;
+ 
+
+5. Hashtag Research: 
+Below top five data are the  most commonly used hashtags on this platform.
+Query and its Result set
+select tag_name,pt.tag_id,count(tag_id) as cnt  
+from asj_tags as t join asj_photo_tags as pt
+on pt.tag_id = t.id
+group by tag_name
+order by cnt desc;
+ 
+
+b. Investor Metrics
+6. Ad Campaign Launch: 
+To launch a new ads in to release that should be Thursday and Sunday since on these days mostly new accounts are getting created.
+Query and its Result set
+select distinct dayname(created_at) as day_name, count(*)  as total from asj_users
+ group by day_name
+ order by total desc;
+
+7. Bots & Fake Accounts: 
+As per the  business team Requirement  we have analysed that some accounts are created fake or operated by bots from the data we extracted the data which user is sending likes to each and every other user uploads.
+Query and its Result set
+SELECT
+    l.user_id,
+    u.username,
+    COUNT(DISTINCT l.photo_id) AS total_liked_photos,
+    (SELECT COUNT(*) FROM ASJ_photos) AS total_photos_on_site
+FROM
+    asj_likes l
+INNER JOIN
+    ASJ_users u ON l.user_id = u.id
+GROUP BY
+    l.user_id, u.username
+HAVING
+    total_liked_photos = (SELECT COUNT(*) FROM ASJ_photos)
+    ;
+ 
+ 
+
+From Above inferences we can say that 13 fake accounts were present in the given data
+
+6. 	Result
+•	Out of 100 people/accounts we could see tough competition between very less users only
+To increase the usage of application from public we must introduce streak Points concept, So That most of people will try to upload pics which leads to high reach to all users.
+
+•	From Above inferences we can say that 13 fake accounts were present in the given data To avoid these accounts we have to put some measures increasing authentication while creating accounts.
+•	To attract new audience, with giving  some rewards to existing users on several aspects
+and must promote more.
+7. 	Drive Link
+
+
