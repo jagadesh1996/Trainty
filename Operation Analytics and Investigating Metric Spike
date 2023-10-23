@@ -1,1 +1,151 @@
+Case Study 1: Job Data Analysis
+You will be working with a table named job_data with the following columns:
+
+job_id: Unique identifier of jobs
+actor_id: Unique identifier of actor
+event: The type of event (decision/skip/transfer).
+language: The Language of the content
+time_spent: Time spent to review the job in seconds.
+org: The Organization of the actor
+ds: The date in the format yyyy/mm/dd (stored as text).
+
+
+A. Jobs Reviewed Over Time:
+o	Objective: Calculate the number of jobs reviewed per hour for each day in November 2020.
+o	Your Task: Write an SQL query to calculate the number of jobs reviewed per hour for each day in November 2020.
+-- From the below query we could see that to review one job is taking 1 day on an avg in november month 
+
+SELECT 
+DATE_FORMAT(ds, '%y%-%m-%d') AS date,
+COUNT(*) AS jobs_reviewed
+FROM job_data
+WHERE month(ds)='11'
+GROUP BY 1;
+SELECT DISTINCT ds AS days,
+(Count(job_id) *3600) / (Sum(time_spent)) AS no_of_jobs_reviewed
+FROM asj_job_data
+GROUP BY days;
+
+Throughput Analysis:
+o	Objective: Calculate the 7-day rolling average of throughput (number of events per second).
+o	Your Task: Write an SQL query to calculate the 7-day rolling average of throughput. Additionally, 
+o	explain whether you prefer using the daily metric or the 7-day rolling average for throughput, and why.
+
+select a.ds as day, a.throughput,
+avg(a.throughput) over( order by DS ROWS BETWEEN 6 preceding AND CURRENT ROW) AS 7_DAY_THROUGHPUT_AVG
+FROM 
+(select ds, count(*)/sum(time_spent) as throughput from asj_job_data group by ds)a
+GROUP BY DS;
+
+
+Daily Metric: Using the daily metric (raw throughput) gives you a snapshot of throughput for each individual day. This is useful for analyzing short-term fluctuations and pinpointing specific days with exceptionally high or low throughput. It's suitable for daily operational insights.
+
+7-Day Rolling Average: The 7-day rolling average provides a smoothed, longer-term view of throughput trends. It helps in identifying trends and patterns over a week, which can be useful for understanding weekly cycles, identifying trends, and making longer-term capacity planning and resource allocation decisions.
+
+C.Language Share Analysis:
+o	Objective: Calculate the percentage share of each language in the last 30 days.
+o	Your Task: Write an SQL query to calculate the percentage share of each language over the last 30 days.
+SELECT LANGUAGE,
+COUNT(JOB_ID) AS NO_OF_JOBS,
+COUNT(JOB_ID)*100/sum(count(*)) OVER() as percentage_share FROM asj_job_data
+WHERE DS BETWEEN '2020-11-01'AND '2020-11-30'
+GROUP BY language
+order by percentage_share desc;
+ 
+From the above query we could see persian language is double compared with rest all.
+D. Duplicate Rows Detection:
+o	Objective: Identify duplicate rows in the data.
+o	Your Task: Write an SQL query to display duplicate rows from the job_data table.
+
+SELECT DS,JOB_ID,LANGUAGE,EVENT,ORG,
+CASE WHEN COUNT(*) OVER(partition by DS,JOB_ID,LANGUAGE,EVENT,ORG) >1 THEN 'DUPLICATE'
+ELSE 'NOT DUPLICATE'
+END AS DUP_STATUS
+ FROM asj_job_data;
+ 
+
+Hence all are records are distinct 
+ 
+ # Case Study 2: Investigating Metric Spike
+A. Weekly User Engagement:
+o	Objective: Measure the activeness of users on a weekly basis.
+o	Your Task: Write an SQL query to calculate the weekly user engagement.
+select extract(week from occurred_at) as weeks,
+COUNT(DISTINCT USER_ID) AS NO_OF_USERS FROM ASJ_EVENTS
+WHERE EVENT_TYPE='ENGAGEMENT'
+GROUP BY 1 ORDER BY 1;
+
+
+
+
+B.User Growth Analysis:
+o	Objective: Analyze the growth of users over time for a product.
+o	Your Task: Write an SQL query to calculate the user growth for the product.
+
+select years, a.weeks as week_num, a.new_users as active_user,
+sum(new_users) over (order by years,weeks rows between unbounded preceding and current row) as cum_active_user 
+from 
+(
+select extract(week from activated_at) as weeks,
+EXTRACT(YEAR FROM activated_at) AS YEARS,
+count(distinct user_id) as new_users from ASJ_USERS
+where state like '%active%'
+ group by 1,2)a;
+
+
+
+A.	Weekly Retention Analysis:
+o	Objective: Analyze the retention of users on a weekly basis after signing up for a product.
+o	Your Task: Write an SQL query to calculate the weekly retention of users based on their sign-up cohort.
+SELECT
+    DATE_FORMAT(cohort_start_date, '%Y-%m-%d') AS cohort_week_start,
+    DATE_FORMAT(DATE_ADD(cohort_start_date, INTERVAL 6 DAY), '%Y-%m-%d') AS cohort_week_end,
+    COUNT(DISTINCT u.user_id) AS cohort_size,
+    COUNT(DISTINCT e.user_id) AS weekly_retention
+FROM (
+    SELECT
+        user_id,
+        created_at AS cohort_start_date
+    FROM ASJ_USERS
+) u
+LEFT JOIN (
+    SELECT
+        user_id,
+        occurred_at AS event_date
+    FROM ASJ_EVENTS1
+) e ON u.user_id = e.user_id AND event_date BETWEEN cohort_start_date AND DATE_ADD(cohort_start_date, INTERVAL 6 DAY)
+GROUP BY cohort_start_date
+ORDER BY cohort_start_date;
+
+
+
+Weekly Engagement Per Device:
+o	Objective: Measure the activeness of users on a weekly basis per device.
+o	Your Task: Write an SQL query to calculate the weekly engagement per device.
+SELECT
+    DATE_FORMAT(occurred_week, '%Y-%m-%d') AS week_start,
+    DATE_FORMAT(DATE_ADD(occurred_week, INTERVAL 6 DAY), '%Y-%m-%d') AS week_end,
+    device,
+    COUNT(*) AS engagement_count
+FROM (
+    SELECT
+        device,
+        DATE(occurred_at) AS occurred_week
+    FROM ASJ_EVENTS
+) combined_events
+GROUP BY 1,2,3
+ORDER BY week_start, device;
+
+
+Email Engagement Analysis:
+o	Objective: Analyze how users are engaging with the email service.
+o	Your Task: Write an SQL query to calculate the email engagement metrics.
+SELECT
+    COUNT(*) AS total_emails_sent,
+    COUNT(DISTINCT USER_ID) AS unique_users_sent,
+    SUM(CASE WHEN action = 'sent_weekly_digest' THEN 1 ELSE 0 END) AS weekly_digest_count,
+    SUM(CASE WHEN action = 'email_open' THEN 1 ELSE 0 END) AS emails_open_count,
+    SUM(CASE WHEN action = 'email_clickthrough' THEN 1 ELSE 0 END) AS email_clickthrough_count,
+    SUM(CASE WHEN action = 'sent_reengagement_email' THEN 1 ELSE 0 END) AS sent_reengagement_email_count
+ FROM ASJ_EMAIL_EVENTS;
 
